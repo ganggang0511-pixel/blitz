@@ -67,9 +67,20 @@ def _cfg():
                 "clients": [{"id": _c, "flow": ""}],
                 "decryption": "none",
                 "fallbacks": [
+                    {"path": "/_w", "dest": 3001},
                     {"path": "/vmess", "dest": 3003},
                     {"path": "/trojan", "dest": 3004}
                 ]
+            },
+            "streamSettings": {"network": "tcp"},
+            "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+        }, {
+            "port": 3001,
+            "listen": "127.0.0.1",
+            "protocol": "vless",
+            "settings": {
+                "clients": [{"id": _c, "flow": ""}],
+                "decryption": "none"
             },
             "streamSettings": {
                 "network": "ws",
