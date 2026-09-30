@@ -65,11 +65,35 @@ def _cfg():
             "protocol": "vless",
             "settings": {
                 "clients": [{"id": _c, "flow": ""}],
-                "decryption": "none"
+                "decryption": "none",
+                "fallbacks": [
+                    {"path": "/vmess", "dest": 3003},
+                    {"path": "/trojan", "dest": 3004}
+                ]
             },
             "streamSettings": {
                 "network": "ws",
                 "wsSettings": {"path": "/_w"}
+            },
+            "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+        }, {
+            "port": 3003,
+            "listen": "127.0.0.1",
+            "protocol": "vmess",
+            "settings": {"clients": [{"id": _c, "alterId": 0}]},
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {"path": "/vmess"}
+            },
+            "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
+        }, {
+            "port": 3004,
+            "listen": "127.0.0.1",
+            "protocol": "trojan",
+            "settings": {"clients": [{"password": _c}]},
+            "streamSettings": {
+                "network": "ws",
+                "wsSettings": {"path": "/trojan"}
             },
             "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}
         }],
@@ -101,9 +125,14 @@ def _run():
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     _l(f'cfd pid {cp.pid}')
 
-def _link():
-    p = base64.b64encode(f'/_w?ed=2560'.encode()).decode()
-    return f'vless://{_c}@{_a}:443?encryption=none&security=tls&sni={_a}&fp=chrome&type=ws&host={_a}&path=%2F_w%3Fed%3D2560#{_g}'
+def _links():
+    vl = f'vless://{_c}@{_a}:443?encryption=none&security=tls&sni={_a}&fp=chrome&type=ws&host={_a}&path=%2F_w%3Fed%3D2560#{_g}-vless'
+    vm = {"v": "2", "ps": f"{_g}-vmess", "add": _a, "port": "443", "id": _c, "aid": "0",
+          "scy": "none", "net": "ws", "type": "none", "host": _a,
+          "path": "/vmess?ed=2560", "tls": "tls", "sni": _a, "alpn": "", "fp": "chrome"}
+    vmess = 'vmess://' + base64.b64encode(json.dumps(vm).encode()).decode()
+    tr = f'trojan://{_c}@{_a}:443?security=tls&sni={_a}&fp=chrome&type=ws&host={_a}&path=%2Ftrojan%3Fed%3D2560#{_g}-trojan'
+    return [vl, vmess, tr]
 
 app = Flask(__name__)
 
@@ -113,12 +142,12 @@ def _idx():
 
 @app.route('/sub')
 def _sub():
-    lk = _link()
+    lk = '\n'.join(_links())
     return Response(base64.b64encode(lk.encode()).decode(), mimetype='text/plain')
 
 @app.route('/list')
 def _lst():
-    return Response(_link() + '\n', mimetype='text/plain')
+    return Response('\n'.join(_links()) + '\n', mimetype='text/plain')
 
 if __name__ == '__main__':
     if not _prep():
@@ -126,5 +155,5 @@ if __name__ == '__main__':
         sys.exit(1)
     threading.Thread(target=_run, daemon=True).start()
     time.sleep(3)
-    _l(f'sub: {_link()}')
+    _l(f'sub: {len(_links())} links')
     app.run(host='0.0.0.0', port=_d, threaded=True)
